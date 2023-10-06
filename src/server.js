@@ -233,7 +233,7 @@ app.post("/get_ai_results", async (request, response) => {
 
   const {
     organization: organization,
-    projet_name: project_name,
+    project_name: project_name,
     target_audience: target_audience,
     resources1: resources1,
     resources2: resources2,
@@ -272,7 +272,7 @@ app.post("/get_ai_results", async (request, response) => {
 
         considerando um determinado projeto, 
         feito por uma organização de ${organization}
-        cujo nome do projeto é: ${projet_name}
+        cujo nome do projeto é: ${project_name}
         e cujo público alvo são: ${target_audience}
         
         um projeto com as seguntes informações: 
