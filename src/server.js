@@ -34,7 +34,7 @@ const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
-const PORT = 3001;
+const PORT = 3002;
 const knowledge_path = process.env.KNOWLEDGE_PATH;
 const orders_path = process.env.ORDERS_PATH;
 
