@@ -140,107 +140,6 @@ async function get_results(activity) {
   }
 }
 
-async function runAiCommands(query) {
-  try {
-    const sql = query;
-    //const params = [activity];
-    const [rows, fields] = await promisePool.execute(sql);
-    return rows;
-  } catch (err) {
-    console.error("Error executing query", err);
-    return null;
-  }
-}
-
-/**
- * Generate a QR code in SVG format.
- * 
- * @param {string} text - The text/data to encode in the QR code.
- * @returns {Promise<string>} The SVG string representation of the QR code.
- */
-async function generateSVGQRCode(text) {
-  try {
-      let svgString = await QRCode.toString(text, {
-          type: 'svg'
-      });
-      return svgString;
-  } catch (err) {
-      throw new Error('Failed to generate QR code: ' + err.message);
-  }
-}
-
-app.get('/get_qrcode/:text', async (req, res) => {
-    try {
-        const URL = process.env.CLIENT_URL;
-        const text = req.params.text;
-        const svg = await generateSVGQRCode(URL + "?" + text);
-        res.header('Content-Type', 'image/svg+xml');
-        res.send(svg);
-    } catch (error) {
-        res.status(500).send({ error: 'Failed to generate QR code.' });
-    }
-});
-
-
-app.post("/create", async (req, res) => {
-  const { prompt } = req.body;
-
-  try {
-    const response = await openai.createImage({
-      prompt,
-      n: 4,
-      size: "1024x1024",
-    });
-    res.send(response.data.data[0].url);
-  } catch (err) {
-    res.send(err.message);
-  }
-});
-
-app.post("/adjust_frase", async (request, response) => {
-  const openai = new OpenAIApi(configuration);
-
-  const prompt =
-  'Translate the following English text to French: "{\\"text\\": \\"Hello, world!\\"}"';
-  
-  const completion = await openai.createChatCompletion({
-    model: "gpt-3.5-turbo",
-    messages: [
-      {
-        "role": "assistant",
-        "content": "You are a helpful assistant"
-      },
-      {
-        "role": "user",
-        "content": "Who won the world series in 2020?"
-      }
-    ],
-    temperature: 1,
-    max_tokens: 256,
-    top_p: 1,
-    frequency_penalty: 0,
-    presence_penalty: 0,
-  });
-  response.send(completion);
-});
-
-app.post("/load_data_model", async (request, response) => {
-  const {
-    connection: connection,
-    database: database,
-    tables: tables,
-  } = request.body;
-
-  try {
-    const data = await runAiCommands(query);
-    response.send(data);
-  } catch (err) {
-    console.error(err);
-    response.status(500).send("Internal server error");
-  }
-
-})
-
 app.post("/get_objectives", async (request, response) => {
 
   const {
@@ -334,7 +233,7 @@ app.post("/get_ai_results", async (request, response) => {
 
   const {
     organization: organization,
-    projet_name: project_name,
+    project_name: project_name,
     target_audience: target_audience,
     resources1: resources1,
     resources2: resources2,
@@ -373,7 +272,7 @@ app.post("/get_ai_results", async (request, response) => {
 
         considerando um determinado projeto, 
         feito por uma organização de ${organization}
-        cujo nome do projeto é: ${projet_name}
+        cujo nome do projeto é: ${project_name}
         e cujo público alvo são: ${target_audience}
         
         um projeto com as seguntes informações: 
@@ -413,7 +312,7 @@ app.post("/get_ai_results", async (request, response) => {
   });
 });
 
-app.post("/get_create_teory", async (request, response) => {
+app.post("/create_teory", async (request, response) => {
 
   const {
     organization: organization,
@@ -488,11 +387,7 @@ app.post("/get_create_teory", async (request, response) => {
   axios.post('https://api.openai.com/v1/chat/completions', data, {headers})
   .then(apiResponse => {
     console.log(apiResponse.data);
-    //const final_text = apiResponse.data.choices[0].message.content
-    //const theoryText = final_text.theory[0];
-    //console.log(theoryText);
     const contentObject = JSON.parse(apiResponse.data.choices[0].message.content);
-
     if (contentObject && contentObject.theory) {
       const theoryValue = contentObject.theory[0];
       sendEmail(project_name, theoryValue, email);
@@ -507,7 +402,26 @@ app.post("/get_create_teory", async (request, response) => {
   .catch(error => {
     console.error(error);
   });
+
+  const result = await insertProspect(email, organization, project_name, JSON.stringify(request.body));
+
 });
+
+async function insertProspect(str_email, str_empresa, str_projeto, txt_dados_projeto) {
+  try {
+    const sql =
+      "INSERT INTO prospects(str_email, str_empresa, str_projeto, txt_dados_projeto) VALUES(?,?,?,?)";
+    const params = [str_email, str_empresa, str_projeto, txt_dados_projeto];
+    
+    const [rows, fields] = await promisePool.execute(sql, params);
+    
+    return rows;
+  } catch (err) {
+    console.error("Error executing query", err);
+    return null;
+  }
+}
+
 
 function sendEmail(name_project, final_text, recipientEmail) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);  // Set your API key here or use an environment variable
@@ -531,67 +445,6 @@ function sendEmail(name_project, final_text, recipientEmail) {
       console.error('Error sending email:', error);
     });
 }
-
-async function load_table_desc(table) {
-  try {
-    // Ensure that table name does not contain any malicious or unexpected characters
-    if (!table.match(/^[a-zA-Z0-9_]+$/)) {
-      throw new Error("Invalid table name");
-    }
-    
-    const sql = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = "` + table + `"`;
-    console.log(sql);
-    const [rows, fields] = await promisePool.execute(sql);
-    return rows;
-  } catch (err) {
-    console.error("Error executing query", err);
-    return null;
-  }
-}
-
-app.post("/change_pass", async (request, response) => {
-
-  console.log(request?.body);
-
-  const desc_table = await load_table_desc('admin');
-  console.log(desc_table);
-
-  const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-  };
-
-  const data = {
-    "model": "gpt-3.5-turbo",
-    "messages": [
-      {
-        "role": "system",
-        "content": "você é um analista de sistemas experiente com MySQL"
-      },
-      {
-        "role": "user",
-        "content": `sendo os campos de uma tabela de usuários ${desc_table}, crie uma query de MySQL 8 para atualizar a senha do usuário usando o e-mail notte@ewti.com.br e a senha !Q2w3e4r sendo que a senha tem a encriptação nativa de MD5 do banco de dados.
-
-        responda apenas a query que preciso rodar no banco de dados, sem nenhum texto antes ou depois, em apenas uma linha.
-        `
-      }
-    ],
-    temperature: 1.3,
-    max_tokens: 256,
-    top_p: 1,
-    frequency_penalty: 0,
-    presence_penalty: 0,
-  };
-
-  axios.post('https://api.openai.com/v1/chat/completions', data, {headers})
-  .then(apiResponse => {
-    console.log(apiResponse.data);
-    response.send(apiResponse.data.choices[0].message.content);
-  })
-  .catch(error => {
-    console.error(error);
-  });
-});
 
 app.listen(PORT, (error) => {
   if (!error)
