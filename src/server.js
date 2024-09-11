@@ -291,9 +291,9 @@ async function queryAI(request) {
 
   let Knowledge_base_data;
   if(!knowledge_base) {
-    Knowledge_base_data = await loadDataFromFile("data/" + knowledge_path + "/main.txt");
+    Knowledge_base_data = await loadDataFromFile("./data/" + knowledge_path + "/main.txt");
   } else {
-    Knowledge_base_data = await loadDataFromFile("data/" + knowledge_path + "/" + knowledge_base + ".txt");
+    Knowledge_base_data = await loadDataFromFile("./data/" + knowledge_path + "/" + knowledge_base + ".txt");
   }
   console.log(Knowledge_base_data);
 
