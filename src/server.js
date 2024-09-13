@@ -21,6 +21,16 @@ const pool = mysql.createPool({
   database: process.env.DATABASE,
 });
 const promisePool = pool.promise();
+
+const pool_TJ = mysql.createPool({
+  connectionLimit: 10,
+  host: process.env.HOST_TJ,
+  user: process.env.DB_USER_TJ,
+  password: process.env.PASSWORD_TJ,
+  database: process.env.DATABASE_TJ,
+});
+const promisePool_TJ = pool_TJ.promise();
+
 var corsOptions = {
   origin: 'https://attendant-ai.netlify.app/',
   optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
@@ -281,19 +291,21 @@ async function queryAI(request) {
     knowledge_base: knowledge_base,
     question: question,
     pedido: pedido,
+    data_folder: data_folder,
   } = request.body;
 
   console.log(request?.body);
   console.log(request?.knowledge_base);
   console.log(question);
+  console.log(data_folder);
   console.log(getTodayDateWithWeekday());
   const dateComplete = await getTodayDateWithWeekday();
 
   let Knowledge_base_data;
   if(!knowledge_base) {
-    Knowledge_base_data = await loadDataFromFile("./data/" + knowledge_path + "/main.txt");
+  Knowledge_base_data = await loadDataFromFile("./data/" + data_folder + "/" + "/main.txt");
   } else {
-    Knowledge_base_data = await loadDataFromFile("./data/" + knowledge_path + "/" + knowledge_base + ".txt");
+  Knowledge_base_data = await loadDataFromFile("./data/" + data_folder + "/" + "/" + knowledge_base + ".txt");
   }
   console.log(Knowledge_base_data);
 
@@ -317,7 +329,7 @@ async function queryAI(request) {
   
         responda a seguinte pergunta: ${question}
   
-        se a sugestão for para trocar a base de conhecimento, utilize apenas as seguintes bases de conhecimento: vendas, entregas, tecnologia, marketing. Responda no seguinte formato: #knowledge_base|<nome da base de conhecimento>|
+        se a sugestão for para trocar a base de conhecimento, utilize apenas as seguintes bases de conhecimento: vendas, entregas, tecnologia, marketing, produtos. Responda no seguinte formato: #knowledge_base|<nome da base de conhecimento>|
 
         se a pergunta for sobre um pedido no formato de 8 ou mais digitos, responda no seguinte formato: #numero-do-pedido|<numero do pedido>|
 
@@ -375,7 +387,139 @@ app.post("/attendant", async (request, response) => {
   }
 });
 
+// Corrected queryAITJ function
+async function queryAITJ(userData) {
+  const { nome, sobrenome, email, telefone, cidade, estado, cursos } = userData[0];
 
+  console.log('User Data:', { nome, sobrenome, email, telefone, cidade, estado, cursos });
+  const dateComplete = await getTodayDateWithWeekday();
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+  };
+
+  const data = {
+    "model": "gpt-4o-2024-05-13", // Corrected model name
+    "messages": [
+      {
+        "role": "system",
+        "content": "Você é uma especialista educacional e deve analisar os dados do usuario e sugerir algumas ações para melhorar o seu desenvolvimento educacional com base nas bases de dados carregadas."
+      },
+      {
+        "role": "user",
+        "content": `O perfil do usuário é: ${nome} ${sobrenome}, email: ${email}, telefone: ${telefone}, cidade: ${cidade}, estado: ${estado}.
+        Analise os seguintes cursos: ${cursos}.
+        
+        Sugira algumas ações para melhorar o desenvolvimento educacional do usuário.
+
+        Não responda nada que não tenha relação com os dados fornecidos aqui.
+
+        responda em um adicionando tags HTML de quebra de linha e bullets.
+
+        Responda para o usuário na primeira pessoa.
+        `
+      }
+    ],
+    temperature: 0.9,
+    max_tokens: 512,
+    top_p: 1,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+  };
+
+  try {
+    const apiResponse = await axios.post('https://api.openai.com/v1/chat/completions', data, { headers });
+    const messageContent = apiResponse.data.choices[0]?.message?.content || "";
+    console.log('API Response:', messageContent);
+
+    if (messageContent.startsWith("#")) {
+      const operationType = messageContent.split("|")[0];
+      const newKnowledgeBase = messageContent.split("|")[1];
+      console.log("Operation type:", operationType);
+
+      if (operationType === "#knowledge_base") {
+        console.log("Switching knowledge base to:", newKnowledgeBase);
+        return await queryAITJ(userData, question, newKnowledgeBase, data_folder, orders_path); // Re-run with the new knowledge base
+      } else if (operationType === "#numero-do-pedido") {
+        const additionalData = await loadDataFromFile(`./data/${orders_path}/${newKnowledgeBase}`);
+        return `Pedido: ${newKnowledgeBase}\n${additionalData}`;
+      }
+    } else {
+      return messageContent;
+    }
+  } catch (error) {
+    console.error('API error:', error.response ? error.response.data : error.message);
+    throw error;
+  }
+}
+
+// Corrected POST handler
+app.post("/login_tamojunto", async (request, response) => {
+  const { userLogin } = request.body;
+  console.log('Request body:', request?.body);
+
+  try {
+    const userData = await login_tamojunto(userLogin);
+    if (userData && userData.length > 0) {
+      const answer = await queryAITJ(userData);
+      response.send(answer);
+    } else {
+      response.status(404).send("No user found with the provided login.");
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    response.status(500).send("An error occurred while processing your request.");
+  }
+});
+
+
+async function login_tamojunto(userLogin) {
+  try {
+    const sql = `
+                SELECT 
+                  e.str_nome AS nome,
+                  e.str_sobrenome AS sobrenome,
+                  e.str_email AS email,
+                  e.str_telefone AS telefone,
+                  e.str_cidade AS cidade,
+                  e.str_estado AS estado,
+                  CONCAT('[', 
+                    GROUP_CONCAT(
+                      CONCAT(
+                        '{"curso_titulo":"', c.titulo, '",',
+                        '"curso_descricao":"', c.descricao, '",',
+                        '"curso_status":"', uc.str_status, '",',
+                        '"data_inscricao":"', IFNULL(uc.dt_inscricao, 'null'), '",',
+                        '"data_conclusao":"', IFNULL(uc.dt_conclusao, 'null'), '",',
+                        '"progresso":"', IFNULL(p.int_progressao, 0), '"}'
+                      ) SEPARATOR ','
+                    ), 
+                  ']') AS cursos
+                FROM 
+                  tab_empreendedor e
+                LEFT JOIN 
+                  tab_usuario_curso uc ON e.int_empreendedor_id_pk = uc.int_empreendedor_id_fk
+                LEFT JOIN 
+                  tab_cursos c ON uc.int_curso_id_fk = c.int_curso_id_fk
+                LEFT JOIN 
+                  tab_usuario_curso_progressao p ON e.int_empreendedor_id_pk = p.int_empreendedor_id_fk
+                  AND uc.int_curso_id_fk = p.int_curso_id_fk
+                WHERE 
+                  e.str_email = ?
+                GROUP BY 
+                  e.int_empreendedor_id_pk
+                LIMIT 1;
+              `;
+    const params = [userLogin];
+    console.log(sql);
+    const [rows, field] = await promisePool_TJ.execute(sql, params);
+    return rows;
+  } catch (err) {
+    console.error("Error executing query", err);
+    return null;
+  }
+}
 
 function sendEmail(name_project, final_text, recipientEmail) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);  // Set your API key here or use an environment variable
