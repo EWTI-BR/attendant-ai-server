@@ -5,6 +5,7 @@ telefones de atendimento:
 compras: 0800-1111111
 marketing: 0800-2222222
 tecnologia: 0800-3333333
+whatsapp: 11983353833
 
 endereço de cobrança:
 Rua da Cobrança, 123 - Bela Promissória

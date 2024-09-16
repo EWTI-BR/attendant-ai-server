@@ -342,6 +342,8 @@ async function queryAI(request) {
         Não responda nada que não tenha relação com os dados fornecidos aqui.
 
         Se alguem pedir para falar com um atendente, o horario for dentro do expediente, devolva um link de whatsapp com o telefone 11 983353833.
+
+        sempre responda usando HTML, se tiver um numero adicione sempre links clicaveis.
         `
       }
     ],
@@ -410,25 +412,25 @@ async function queryAITJ(userData) {
     "messages": [
       {
         "role": "system",
-        "content": "Você é uma especialista educacional e deve analisar os dados do usuario e sugerir algumas ações para melhorar o seu desenvolvimento educacional com base nas bases de dados carregadas."
+        "content": "Você é uma especialista educacional e deve analisar os dados do usuario e sugerir algumas ações para melhorar o seu desenvolvimento educacional com base nas bases de dados carregadas. Você está falando com um usuário simples, utilize palavras faceis e acessívei."
       },
       {
         "role": "user",
         "content": `O perfil do usuário é: ${nome} ${sobrenome}, email: ${email}, telefone: ${telefone}, cidade: ${cidade}, estado: ${estado}.
         Analise os seguintes cursos: ${cursos}.
         
-        Sugira algumas ações para melhorar o desenvolvimento educacional do usuário.
+        Seja bem suscinta e direta e sugira apenas 1 ação dentre todas as possíveis para melhorar o desenvolvimento educacional do usuário.
 
-        Não responda nada que não tenha relação com os dados fornecidos aqui.
+        Use dados educacionais junto com os dados fornecidos aqui para fornecer uma indicação clara e direta para o empreendedor.
 
-        responda em um adicionando tags HTML de quebra de linha e bullets.
+        Responda para o usuário na primeira pessoa. Não ultrapasse 420 caracteres.
 
-        Responda para o usuário na primeira pessoa.
+        Responda em format HTML.
         `
       }
     ],
     temperature: 0.9,
-    max_tokens: 512,
+    max_tokens: 220,
     top_p: 1,
     frequency_penalty: 0,
     presence_penalty: 0,
