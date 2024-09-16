@@ -300,7 +300,9 @@ async function queryAI(request) {
   console.log(data_folder);
   console.log(getTodayDateWithWeekday());
   const dateComplete = await getTodayDateWithWeekday();
+  const hour = new Date().toLocaleTimeString();
 
+  console.log(hour);
   let Knowledge_base_data;
   if(!knowledge_base) {
   Knowledge_base_data = await loadDataFromFile("./data/" + data_folder + "/" + "/main.txt");
@@ -325,7 +327,9 @@ async function queryAI(request) {
       },
       {
         "role": "user",
-        "content": `Sabendo que hoje é ${dateComplete} e baseado na seguinte base de conhecimento: ${Knowledge_base_data}
+        "content": `Adicione na sua resposta sempre a data e hora nesse formato: [${dateComplete} ${hour}] - e o resto do texto.
+        
+        Sabendo que hoje é ${dateComplete} às ${hour} e baseado na seguinte base de conhecimento: ${Knowledge_base_data}
   
         responda a seguinte pergunta: ${question}
   
@@ -336,6 +340,8 @@ async function queryAI(request) {
         ${pedido}
 
         Não responda nada que não tenha relação com os dados fornecidos aqui.
+
+        Se alguem pedir para falar com um atendente, o horario for dentro do expediente, devolva um link de whatsapp com o telefone 11 983353833.
         `
       }
     ],
